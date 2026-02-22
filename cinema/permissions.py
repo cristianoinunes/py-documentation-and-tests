@@ -11,3 +11,14 @@ class IsAdminOrIfAuthenticatedReadOnly(BasePermission):
             )
             or (request.user and request.user.is_staff)
         )
+
+
+class IsAuthenticatedOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
+            return True
+
+        if request.user and request.user.is_authenticated:
+            return True
+
+        return False

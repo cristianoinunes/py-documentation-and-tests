@@ -157,3 +157,139 @@ class MovieImageUploadTests(TestCase):
         res = self.client.get(MOVIE_SESSION_URL)
 
         self.assertIn("movie_image", res.data[0].keys())
+
+
+class MovieViewSetTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            email="user@test.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(self.user)
+
+        self.genre = sample_genre()
+        self.actor = sample_actor()
+
+    def test_list_movies(self):
+        """Test listing movies"""
+        movie = sample_movie()
+        movie.genres.add(self.genre)
+        movie.actors.add(self.actor)
+
+        res = self.client.get(MOVIE_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)
+
+    def test_retrieve_movie(self):
+        """Test retrieving a movie by ID"""
+        movie = sample_movie()
+        url = detail_url(movie.id)
+
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["id"], movie.id)
+
+    def test_create_movie(self):
+        """Test creating a movie"""
+        payload = {
+            "title": "New Movie",
+            "description": "Test desc",
+            "duration": 120,
+            "genres": [self.genre.id],
+            "actors": [self.actor.id],
+        }
+
+        res = self.client.post(MOVIE_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Movie.objects.count(), 1)
+
+    def test_update_movie(self):
+        """Test updating a movie"""
+        movie = sample_movie()
+        url = detail_url(movie.id)
+
+        payload = {
+            "title": "Updated",
+            "description": "Updated desc",
+            "duration": 150,
+            "genres": [self.genre.id],
+            "actors": [self.actor.id],
+        }
+
+        res = self.client.put(url, payload)
+
+        movie.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(movie.title, "Updated")
+
+    def test_partial_update_movie(self):
+        """Test partially updating a movie"""
+        movie = sample_movie()
+        url = detail_url(movie.id)
+
+        res = self.client.patch(url, {"title": "Patched"})
+
+        movie.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(movie.title, "Patched")
+
+    def test_delete_movie(self):
+        """Test deleting a movie"""
+        movie = sample_movie()
+        url = detail_url(movie.id)
+
+        res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Movie.objects.filter(id=movie.id).exists())
+
+    def test_filter_movies_by_title(self):
+        """Test filtering movies by title"""
+        sample_movie(title="Batman")
+        sample_movie(title="Superman")
+
+        res = self.client.get(MOVIE_URL, {"title": "Bat"})
+
+        self.assertEqual(len(res.data), 1)
+
+    def test_filter_movies_by_genre(self):
+        """Test filtering movies by genre"""
+        genre2 = sample_genre(name="Comedy")
+
+        movie1 = sample_movie(title="Movie 1")
+        movie1.genres.add(self.genre)
+
+        movie2 = sample_movie(title="Movie 2")
+        movie2.genres.add(genre2)
+
+        res = self.client.get(MOVIE_URL, {"genres": self.genre.id})
+
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]["id"], movie1.id)
+
+    def test_filter_movies_by_actor(self):
+        """Test filtering movies by actor"""
+        actor2 = sample_actor(first_name="Brad", last_name="Pitt")
+
+        movie1 = sample_movie(title="Movie 1")
+        movie1.actors.add(self.actor)
+
+        movie2 = sample_movie(title="Movie 2")
+        movie2.actors.add(actor2)
+
+        res = self.client.get(MOVIE_URL, {"actors": self.actor.id})
+
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]["id"], movie1.id)
+
+    def test_auth_required(self):
+        """Test that authentication is required"""
+        self.client.force_authenticate(user=None)
+
+        res = self.client.get(MOVIE_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
