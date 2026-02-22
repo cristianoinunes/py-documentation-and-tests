@@ -162,9 +162,9 @@ class MovieImageUploadTests(TestCase):
 class MovieViewSetTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = get_user_model().objects.create_user(
-            email="user@test.com",
-            password="testpass123",
+        self.user = get_user_model().objects.create_superuser(
+            email="admin.user@cinema.com",
+            password="1qazcde3"
         )
         self.client.force_authenticate(self.user)
 
@@ -203,8 +203,13 @@ class MovieViewSetTests(TestCase):
         }
 
         res = self.client.post(MOVIE_URL, payload)
-
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+
+        res_data = res.data
+        self.assertEqual(res_data["title"], payload["title"])
+        self.assertEqual(res_data["duration"], payload["duration"])
+        self.assertCountEqual(res_data["genres"], payload["genres"])
+        self.assertCountEqual(res_data["actors"], payload["actors"])
         self.assertEqual(Movie.objects.count(), 1)
 
     def test_update_movie(self):
@@ -288,8 +293,7 @@ class MovieViewSetTests(TestCase):
 
     def test_auth_required(self):
         """Test that authentication is required"""
-        self.client.force_authenticate(user=None)
-
-        res = self.client.get(MOVIE_URL)
-
+        client = APIClient()
+        url = "/api/cinema/movies/"
+        res = client.get(url)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)

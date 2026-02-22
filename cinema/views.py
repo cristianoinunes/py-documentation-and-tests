@@ -26,6 +26,9 @@ from cinema.serializers import (
 )
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 
 class GenreViewSet(mixins.CreateModelMixin,
@@ -78,29 +81,37 @@ class CinemaHallViewSet(mixins.CreateModelMixin,
     ]
 )
 class MovieViewSet(viewsets.ModelViewSet):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     queryset = Movie.objects.prefetch_related("genres", "actors")
     serializer_class = MovieSerializer
-    authentication_classes = (TokenAuthentication,)
+    authentication_classes = (JWTAuthentication, TokenAuthentication)
     permission_classes = (IsAuthenticated,)
 
     @swagger_auto_schema(
         manual_parameters=[
-            openapi.Parameter("title",
-                              openapi.IN_QUERY,
-                              description="Filtrar filmes por título",
-                              type=openapi.TYPE_STRING),
-            openapi.Parameter("genre",
-                              openapi.IN_QUERY,
-                              description="Filtrar filmes por gênero",
-                              type=openapi.TYPE_STRING),
-            openapi.Parameter("actor",
-                              openapi.IN_QUERY,
-                              description="Filtrar filmes por ator",
-                              type=openapi.TYPE_STRING),
+            openapi.Parameter(
+                "title",
+                openapi.IN_QUERY,
+                description="Filtrar filmes por título",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "genres",
+                openapi.IN_QUERY,
+                description="Filtrar filmes por ID de gênero "
+                            "(separados por vírgula)",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "actors",
+                openapi.IN_QUERY,
+                description="Filtrar filmes por ID de ator "
+                            "(separados por vírgula)",
+                type=openapi.TYPE_STRING,
+            ),
         ]
     )
     def get_queryset(self):
-        """Recuperar os filmes com filtros"""
         title = self.request.query_params.get("title")
         genres = self.request.query_params.get("genres")
         actors = self.request.query_params.get("actors")
@@ -210,7 +221,7 @@ class OrderViewSet(mixins.CreateModelMixin,
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
+        return self.queryset.filter(user=self.request.user)
 
     def get_serializer_class(self):
         if self.action == "list":
