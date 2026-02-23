@@ -7,7 +7,6 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from rest_framework import permissions
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
